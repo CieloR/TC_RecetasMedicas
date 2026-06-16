@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transpilador Médico MedLang</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .navbar-custom { background-color: #005f73; }
+        .card-upload { border: 2px dashed #0a9396; background-color: #fff; border-radius: 10px; }
+        pre { background-color: #2b2d42; color: #edf2f4; padding: 15px; border-radius: 5px; overflow-x: auto; max-height: 400px;}
+        .table-container { max-height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-custom navbar-dark shadow-sm mb-4">
+        <div class="container">
+            <span class="navbar-brand mb-0 h1">🩺 Sistema de Convalidación de Historiales Clínicos (MedLang)</span>
+        </div>
+    </nav>
+
+    <div class="container mb-5">
+        <div class="row justify-content-center mb-4">
+            <div class="col-md-8">
+                <div class="card card-upload shadow-sm p-4 text-center">
+                    <h5 class="text-secondary mb-3">Subir Receta Médica</h5>
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <input class="form-control" type="file" id="archivo_receta" name="archivo_receta" accept=".html" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary px-4" style="background-color: #005f73; border: none;">Procesar Compilador</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {% if error %}
+        <div class="alert alert-danger shadow-sm" role="alert">
+            <h4 class="alert-heading">❌ Error Detectado durante el Análisis</h4>
+            <p class="mb-0">{{ error }}</p>
+        </div>
+        {% endif %}
+
+        {% if resultado %}
+        <div class="card shadow-sm p-4 bg-white rounded">
+            <h4 class="mb-4 text-dark border-bottom pb-2">Resultados del Análisis Formal</h4>
+            
+            <ul class="nav nav-tabs" id="compilerTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="sql-tab" data-bs-toggle="tab" data-bs-target="#sql" type="button" role="tab">🗄️ Código SQL Generado</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="medlang-tab" data-bs-toggle="tab" data-bs-target="#medlang" type="button" role="tab">🧬 Lenguaje Intermedio</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tokens-tab" data-bs-toggle="tab" data-bs-target="#tokens" type="button" role="tab">📊 Tabla de Tokens</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tree-tab" data-bs-toggle="tab" data-bs-target="#tree" type="button" role="tab">🌳 Árbol Sintáctico</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="grammar-tab" data-bs-toggle="tab" data-bs-target="#grammar" type="button" role="tab">📐 Gramatica</button>
+                </li>
+            </ul>
+
+            <div class="tab-content pt-3" id="compilerTabsContent">
+                
+                <div class="tab-pane fade show active" id="sql" role="tabpanel">
+                    <h6 class="text-secondary mb-2">Sentencias SQL listas para insertar en la Base de Datos Relacional:</h6>
+                    <pre><code>{{ sql }}</code></pre>
+                </div>
+
+                <div class="tab-pane fade" id="medlang" role="tabpanel">
+                    <h6 class="text-secondary mb-2">Traducción de lenguaje natural estructurado a nuestro Lenguaje de Comandos Formal:</h6>
+                    <pre><code>{{ codigo_medlang }}</code></pre>
+                </div>
+
+                <div class="tab-pane fade" id="tokens" role="tabpanel">
+                    <h6 class="text-secondary mb-3">Tokens reconocidos por las Expresiones Regulares:</h6>
+                    <div class="table-container border rounded">
+                        <table class="table table-striped table-hover mb-0">
+                            <thead class="table-dark" style="background-color: #005f73;">
+                                <tr>
+                                    <th>Línea</th>
+                                    <th>Token Formal</th>
+                                    <th>Lexema Detectado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for t in tokens %}
+                                <tr>
+                                    <td>{{ t.linea }}</td>
+                                    <td><span class="badge bg-success">{{ t.token }}</span></td>
+                                    <td><code>{{ t.lexema }}</code></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tree" role="tabpanel">
+                    <h6 class="text-secondary mb-2">Estructura jerárquica generada por la gramática (Formato AST):</h6>
+                    <pre><code>{{ arbol | tojson(indent=4) }}</code></pre>
+                </div>
+
+                <div class="tab-pane fade" id="grammar" role="tabpanel">
+                    <h5 class="text-dark">Gramática Formal del Compilador</h5>
+                    <p class="text-muted">Notación BNF del proyecto:</p>
+                    <div class="p-3 bg-light border rounded font-monospace" style="font-size: 14px;">
+                        &lt;Programa&gt; ::= &lt;Instruccion&gt; &lt;Programa&gt; | ε <br>
+                        &lt;Instruccion&gt; ::= &lt;LineaPaciente&gt; | &lt;LineaConsulta&gt; | &lt;LineaMedicamento&gt; <br>
+                        &lt;LineaPaciente&gt; ::= TK_CREAR_PAC TK_ARROW &lt;ListaAsignaciones&gt; TK_SEMICOLON <br>
+                        &lt;LineaConsulta&gt; ::= TK_REG_CONS TK_ARROW &lt;ListaAsignaciones&gt; TK_SEMICOLON <br>
+                        &lt;LineaMedicamento&gt; ::= TK_ADD_MED TK_ARROW &lt;ListaAsignaciones&gt; TK_SEMICOLON <br>
+                        &lt;ListaAsignaciones&gt; ::= &lt;Asignacion&gt; TK_COMMA &lt;ListaAsignaciones&gt; | &lt;Asignacion&gt; <br>
+                        &lt;Asignacion&gt; ::= TK_ATTR TK_EQUALS &lt;Valor&gt; <br>
+                        &lt;Valor&gt; ::= TK_NUM | TK_TEXT
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
